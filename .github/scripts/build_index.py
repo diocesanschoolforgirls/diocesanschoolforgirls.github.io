@@ -2,8 +2,9 @@
 organisation that has GitHub Pages enabled.
 
 A repo is left off the list if it is archived, is this site's own repo, or
-carries the topic "unlisted". The link text is the repo's description if it
-has one, otherwise a tidied-up version of the repo name.
+carries the topic "unlisted". The link text is the repo's entry in labels.json
+if it has one, then the repo's description, then a tidied-up version of the
+repo name.
 """
 import html
 import json
@@ -33,7 +34,20 @@ def fetch_repos():
         page += 1
 
 
+def load_labels():
+    try:
+        with open("labels.json", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+
+LABELS = load_labels()
+
+
 def title_for(repo):
+    if LABELS.get(repo["name"]):
+        return LABELS[repo["name"]].strip()
     if repo.get("description"):
         return repo["description"].strip()
     words = repo["name"].replace("_", "-").split("-")
