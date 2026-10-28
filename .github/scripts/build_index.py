@@ -5,6 +5,9 @@ A repo is left off the list if it is archived, is this site's own repo, or
 carries the topic "unlisted". The link text is the repo's entry in labels.json
 if it has one, then the repo's description, then a tidied-up version of the
 repo name.
+
+Repos named in school-resources.json go in a separate "School resources"
+list instead of the main one.
 """
 import html
 import json
@@ -34,15 +37,16 @@ def fetch_repos():
         page += 1
 
 
-def load_labels():
+def load_json(path, default):
     try:
-        with open("labels.json", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
-        return {}
+        return default
 
 
-LABELS = load_labels()
+LABELS = load_json("labels.json", {})
+SCHOOL_RESOURCES = set(load_json("school-resources.json", []))
 
 
 def title_for(repo):
@@ -52,6 +56,13 @@ def title_for(repo):
         return repo["description"].strip()
     words = repo["name"].replace("_", "-").split("-")
     return " ".join(words).capitalize()
+
+
+def list_items(repos, empty):
+    return "\n".join(
+        f'    <li><a href="/{html.escape(r["name"])}/">{html.escape(title_for(r))}</a></li>'
+        for r in repos
+    ) or f"    <li>{empty}</li>"
 
 
 def main():
@@ -64,13 +75,15 @@ def main():
     ]
     listed.sort(key=lambda r: title_for(r).lower())
 
-    items = "\n".join(
-        f'    <li><a href="/{html.escape(r["name"])}/">{html.escape(title_for(r))}</a></li>'
-        for r in listed
-    ) or "    <li>No interactives published yet.</li>"
+    teaching = [r for r in listed if r["name"] not in SCHOOL_RESOURCES]
+    school = [r for r in listed if r["name"] in SCHOOL_RESOURCES]
 
     with open("index.template.html", encoding="utf-8") as f:
-        page = f.read().replace("{{PAGES}}", items)
+        page = (
+            f.read()
+            .replace("{{PAGES}}", list_items(teaching, "No interactives published yet."))
+            .replace("{{SCHOOL_RESOURCES}}", list_items(school, "None yet."))
+        )
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(page)
     print(f"Listed {len(listed)} page(s).")
