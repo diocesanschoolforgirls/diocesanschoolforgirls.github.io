@@ -8,6 +8,8 @@ on:
     branches: [main]
     paths:
       - index.template.html
+      - labels.json
+      - school-resources.json
       - .github/scripts/build_index.py
       - .github/workflows/build-index.yml
 
