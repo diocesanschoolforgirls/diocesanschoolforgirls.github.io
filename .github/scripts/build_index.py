@@ -65,14 +65,43 @@ def list_items(repos, empty):
     ) or f"    <li>{empty}</li>"
 
 
-def main():
-    listed = [
-        r for r in fetch_repos()
-        if r.get("has_pages")
-        and not r.get("archived")
-        and r["name"].lower() != SITE_REPO
-        and "unlisted" not in r.get("topics", [])
+def skip_reason(repo):
+    if repo["name"].lower() == SITE_REPO:
+        return "this site's own repo"
+    if repo.get("archived"):
+        return "archived"
+    if not repo.get("has_pages"):
+        return "GitHub Pages is not switched on"
+    if "unlisted" in repo.get("topics", []):
+        return 'has the topic "unlisted"'
+    return None
+
+
+def write_summary(repos, listed, skipped):
+    """Print what was listed and skipped, and add it to the run's summary page."""
+    lines = [
+        f"Checked {len(repos)} repo(s): listed {len(listed)}, skipped {len(skipped)}.",
+        "",
+        "Skipped:",
+        *(f"- {r['name']}: {reason}" for r, reason in skipped),
     ]
+    print("\n".join(lines))
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as f:
+            f.write("## Index rebuild\n\n" + "\n".join(lines) + "\n")
+
+
+def main():
+    repos = fetch_repos()
+    listed, skipped = [], []
+    for r in repos:
+        reason = skip_reason(r)
+        if reason:
+            skipped.append((r, reason))
+        else:
+            listed.append(r)
+    skipped.sort(key=lambda s: s[0]["name"].lower())
     listed.sort(key=lambda r: title_for(r).lower())
 
     teaching = [r for r in listed if r["name"] not in SCHOOL_RESOURCES]
@@ -86,7 +115,7 @@ def main():
         )
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(page)
-    print(f"Listed {len(listed)} page(s).")
+    write_summary(repos, listed, skipped)
 
 
 if __name__ == "__main__":
